@@ -1,0 +1,12 @@
+[package]
+name = "paste-buff-gpui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "paste-buff frontend built with GPUI (Zed's Metal-rendered UI framework)"
+
+[dependencies]
+paste-buff-core.workspace = true
+gpui = { version = "0.2.2", features = ["runtime_shaders"] }
+global-hotkey = "0.8"
+futures = "0.3"

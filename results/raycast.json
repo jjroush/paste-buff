@@ -1,0 +1,29 @@
+{
+  "label": "Raycast",
+  "target": "Raycast",
+  "toggle": "raycast",
+  "cycles": 20,
+  "samples": 160,
+  "procs_max": 6,
+  "procs_final": 5,
+  "proc_names": [
+    "Raycast",
+    "com.apple.WebKit.GPU",
+    "com.apple.WebKit.Networking",
+    "com.apple.WebKit.WebContent",
+    "com.apple.audio.SandboxHelper"
+  ],
+  "idle_footprint_avg": 122105312,
+  "idle_footprint_max": 122162656,
+  "cycling_footprint_avg": 129426381,
+  "cycling_footprint_max": 137433048,
+  "after_footprint_avg": 132956539,
+  "final_footprint": 132697664,
+  "idle_rss_avg": 250697318,
+  "peak_rss": 287752192,
+  "idle_cpu_avg": 0.08783480489597176,
+  "cycling_cpu_avg": 7.009734607330007,
+  "after_cpu_avg": 0.24367262423065617,
+  "binary_bytes": null,
+  "recorded_at_unix": 1791668712
+}

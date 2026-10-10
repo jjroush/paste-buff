@@ -1,0 +1,28 @@
+{
+  "label": "paste-buff-tauri",
+  "target": "target/release/paste-buff-tauri",
+  "toggle": "signal",
+  "cycles": 20,
+  "samples": 160,
+  "procs_max": 4,
+  "procs_final": 4,
+  "proc_names": [
+    "com.apple.WebKit.GPU",
+    "com.apple.WebKit.Networking",
+    "com.apple.WebKit.WebContent",
+    "paste-buff-tauri"
+  ],
+  "idle_footprint_avg": 69527828,
+  "idle_footprint_max": 70224968,
+  "cycling_footprint_avg": 104329148,
+  "cycling_footprint_max": 117017744,
+  "after_footprint_avg": 77076828,
+  "final_footprint": 75484304,
+  "idle_rss_avg": 200727756,
+  "peak_rss": 211943424,
+  "idle_cpu_avg": 0.07992352286824184,
+  "cycling_cpu_avg": 5.168471496207559,
+  "after_cpu_avg": 0.20160923457449442,
+  "binary_bytes": 5792912,
+  "recorded_at_unix": 1791669403
+}

@@ -1,0 +1,5 @@
+/target
+/results/*.log
+/results/seed-*.json
+crates/paste-buff-tauri/gen/
+.DS_Store
