@@ -1,5 +1,9 @@
 //! Find the app to paste into, hand focus back to it, and send Cmd+V.
 
+use core_foundation::base::TCFType;
+use core_foundation::boolean::CFBoolean;
+use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
+use core_foundation::string::CFString;
 use core_graphics::event::{CGEvent, CGEventFlags, CGEventTapLocation, CGKeyCode};
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication, NSWorkspace};
@@ -103,9 +107,23 @@ pub fn paste_into(target: Option<&FrontApp>, delay: Duration) {
 #[link(name = "ApplicationServices", kind = "framework")]
 extern "C" {
     fn AXIsProcessTrusted() -> bool;
+    fn AXIsProcessTrustedWithOptions(options: CFDictionaryRef) -> bool;
 }
 
 /// Whether this process (via its responsible app) may post keyboard events.
 pub fn accessibility_trusted() -> bool {
     unsafe { AXIsProcessTrusted() }
+}
+
+/// Like [`accessibility_trusted`], but when the answer is no, asks macOS to
+/// show its "allow this app to control your computer" prompt, which adds the
+/// binary to System Settings > Privacy & Security > Accessibility. The prompt
+/// appears at most once per binary; afterwards the user flips the switch.
+pub fn accessibility_trusted_prompting() -> bool {
+    let key = CFString::from_static_string("AXTrustedCheckOptionPrompt");
+    let options = CFDictionary::from_CFType_pairs(&[(
+        key.as_CFType(),
+        CFBoolean::true_value().as_CFType(),
+    )]);
+    unsafe { AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef()) }
 }

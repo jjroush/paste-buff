@@ -6,13 +6,34 @@
 # Environment:
 #   PASTE_BUFF_VERSION  tag to install (default: latest), e.g. v0.1.0
 #   PASTE_BUFF_BIN_DIR  where to put the binary (default: ~/.local/bin)
-#   GITHUB_TOKEN        needed only while the repo is private
+#   GITHUB_TOKEN        needed only for a private fork of the repo
+#   PASTE_BUFF_NO_AGENT set to skip the launchd agent (just install the binary)
+#
+# After installing, the script registers a launchd agent so paste-buff starts
+# now and at every login, like Raycast. `install.sh --uninstall` reverses it.
 set -eu
 
 REPO="${PASTE_BUFF_REPO:-jjroush/paste-buff}"
 VERSION="${PASTE_BUFF_VERSION:-latest}"
 BIN_DIR="${PASTE_BUFF_BIN_DIR:-$HOME/.local/bin}"
 TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+LABEL="io.roush.paste-buff"
+AGENTS="$HOME/Library/LaunchAgents"
+PLIST="$AGENTS/$LABEL.plist"
+LOG="$HOME/Library/Logs/paste-buff.log"
+DOMAIN="gui/$(id -u)"
+
+stop_agent() {
+  launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+}
+
+if [ "${1:-}" = "--uninstall" ]; then
+  stop_agent
+  rm -f "$PLIST" "$BIN_DIR/paste-buff"
+  echo "removed $BIN_DIR/paste-buff and the launchd agent"
+  echo "history is still in ~/Library/Application Support/paste-buff; delete it if you want"
+  exit 0
+fi
 
 [ "$(uname -s)" = "Darwin" ] || { echo "paste-buff only runs on macOS" >&2; exit 1; }
 case "$(uname -m)" in
@@ -67,11 +88,49 @@ fi
 
 tar -xzf "$TMP/$ASSET" -C "$TMP"
 mkdir -p "$BIN_DIR"
+# Stop a running agent before swapping the binary under it.
+stop_agent
 install -m 755 "$TMP/paste-buff-$TARGET/paste-buff" "$BIN_DIR/paste-buff"
 
 echo "installed $BIN_DIR/paste-buff ($("$BIN_DIR/paste-buff" --version 2>/dev/null || echo "$VERSION"))"
-case ":$PATH:" in
-  *":$BIN_DIR:"*) ;;
-  *) echo "note: $BIN_DIR is not on your PATH" ;;
-esac
-echo "run it with: paste-buff &   (then press ⌘⇧V)"
+
+if [ -n "${PASTE_BUFF_NO_AGENT:-}" ]; then
+  echo "run it with: paste-buff &   (then press ⌘⇧V)"
+  exit 0
+fi
+
+mkdir -p "$AGENTS" "$(dirname "$LOG")"
+cat > "$PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$BIN_DIR/paste-buff</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+  <key>StandardOutPath</key>
+  <string>$LOG</string>
+  <key>StandardErrorPath</key>
+  <string>$LOG</string>
+</dict>
+</plist>
+PLIST
+
+launchctl bootstrap "$DOMAIN" "$PLIST"
+echo "started paste-buff in the background; it will start again at login"
+echo "press ⌘⇧V to open it. First time only, macOS asks for Accessibility access so"
+echo "it can press ⌘V for you (System Settings > Privacy & Security > Accessibility)."
+echo "If Raycast is running, turn off its Clipboard History hotkey, which is also ⌘⇧V."
+echo "logs: $LOG    uninstall: install.sh --uninstall"

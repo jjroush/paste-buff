@@ -48,7 +48,16 @@ struct PasteBuff {
 }
 
 impl PasteBuff {
-    fn new(history: Arc<Mutex<History>>, cx: &mut Context<Self>) -> Self {
+    fn new(history: Arc<Mutex<History>>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        // Like Raycast: losing key status (a click elsewhere, another panel
+        // taking over) dismisses the panel instead of leaving it stranded.
+        cx.observe_window_activation(window, |this, window, cx| {
+            if this.shown && !window.is_window_active() {
+                this.hide(cx);
+            }
+        })
+        .detach();
+
         let mut this = Self {
             history,
             focus_handle: cx.focus_handle(),
@@ -95,7 +104,9 @@ impl PasteBuff {
         self.selected = 0;
         self.refresh();
         self.shown = true;
-        cx.activate(true);
+        // The panel is a non-activating NSPanel: it becomes the key window
+        // without activating this app, so the target keeps its activation
+        // (macOS refuses to activate a background app on its own say-so).
         window.activate_window();
         window.focus(&self.focus_handle);
         self.scroll.scroll_to_item(0, ScrollStrategy::Top);
@@ -476,7 +487,7 @@ fn main() {
 
     Application::new().run(move |cx: &mut App| {
         macapp::set_accessory_policy();
-        if !paste::accessibility_trusted() {
+        if !paste::accessibility_trusted_prompting() {
             eprintln!(
                 "paste-buff-gpui: no Accessibility permission; Enter will copy \
                  the entry but cannot send Cmd+V to the target app."
@@ -534,7 +545,7 @@ fn main() {
                     window_background: WindowBackgroundAppearance::Transparent,
                     ..Default::default()
                 },
-                |_, cx| cx.new(|cx| PasteBuff::new(Arc::clone(&history), cx)),
+                |window, cx| cx.new(|cx| PasteBuff::new(Arc::clone(&history), window, cx)),
             )
             .expect("open paste-buff window");
 

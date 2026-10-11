@@ -50,7 +50,7 @@ Shared behaviour (all frontends):
   keystrokes need.
 
 Keys inside the panel: type to filter, ↑/↓ move, ⏎ paste, ⌘⌫ or Delete
-removes an entry, Esc hides, ⌘Q quits.
+removes an entry, Esc or clicking elsewhere hides, ⌘Q quits.
 
 ## Install
 
@@ -73,11 +73,16 @@ gh release download --repo jjroush/paste-buff --pattern 'install.sh' -O - | GITH
 gh release download --repo jjroush/paste-buff --pattern "paste-buff-$(uname -m | sed s/arm64/aarch64/)-apple-darwin.tar.gz"
 ```
 
-Then start it in the background and press ⌘⇧V:
+The script also registers a launchd agent (`~/Library/LaunchAgents/
+io.roush.paste-buff.plist`) that starts `paste-buff` right away and at every
+login, restarts it if it crashes, and logs to `~/Library/Logs/paste-buff.log`.
+Quitting with ⌘Q inside the panel stops it until the next login or
+reinstall. Set `PASTE_BUFF_NO_AGENT=1` to get just the binary, and run
+`install.sh --uninstall` to remove the agent and the binary (history stays).
 
-```sh
-paste-buff &
-```
+On first launch macOS asks for Accessibility access so paste-buff can press
+⌘V in the target app. Raycast's Clipboard History also uses ⌘⇧V; turn that
+hotkey off in Raycast or the two will fight over the panel.
 
 The binary is ad-hoc signed, not notarised. Files fetched with `curl` carry
 no quarantine flag so Gatekeeper leaves them alone; if you download the
@@ -109,8 +114,15 @@ Things macOS will ask for:
   binary itself once it is bundled). Without it the app still copies the
   entry to the pasteboard but cannot send ⌘V, and logs a one-line warning.
 - **Hotkey conflicts**: Raycast and paste-buff can both register ⌘⇧V and
-  both will fire. Change or disable Raycast's Clipboard History hotkey while
-  testing, or quit Raycast.
+  both will fire. Whichever panel gets key status last wins the keyboard,
+  and paste-buff hides itself when it loses key status, so with both bound
+  you will mostly see Raycast. Change or disable Raycast's Clipboard History
+  hotkey, or quit Raycast.
+- **Ad-hoc signatures and Accessibility**: macOS ties the Accessibility
+  grant to the binary's code signature. Every new build has a new ad-hoc
+  signature, so after an upgrade the existing switch in System Settings may
+  stop working; toggle it off and on (or remove and re-add the entry). A
+  Developer ID signature would make the grant survive upgrades.
 - **GPUI shaders**: the GPUI crate is built with the `runtime_shaders`
   feature because Xcode 26 ships its Metal compiler as a separate download.
   If you install it (`xcodebuild -downloadComponent MetalToolchain`) you can
