@@ -52,6 +52,46 @@ Shared behaviour (all frontends):
 Keys inside the panel: type to filter, ↑/↓ move, ⏎ paste, ⌘⌫ or Delete
 removes an entry, Esc hides, ⌘Q quits.
 
+## Install
+
+Prebuilt binaries for Apple Silicon and Intel Macs are attached to each
+[GitHub release](https://github.com/jjroush/paste-buff/releases). The install
+script picks the right one, verifies its SHA-256, and puts `paste-buff` in
+`~/.local/bin`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/jjroush/paste-buff/main/scripts/install.sh | sh
+```
+
+Set `PASTE_BUFF_VERSION=v0.1.0` to pin a release or `PASTE_BUFF_BIN_DIR` to
+install elsewhere. While the repository is private, GitHub needs a token to
+serve both the script and the assets, so use the `gh` CLI instead:
+
+```sh
+gh release download --repo jjroush/paste-buff --pattern 'install.sh' -O - | GITHUB_TOKEN=$(gh auth token) sh
+# or grab the tarball directly
+gh release download --repo jjroush/paste-buff --pattern "paste-buff-$(uname -m | sed s/arm64/aarch64/)-apple-darwin.tar.gz"
+```
+
+Then start it in the background and press ⌘⇧V:
+
+```sh
+paste-buff &
+```
+
+The binary is ad-hoc signed, not notarised. Files fetched with `curl` carry
+no quarantine flag so Gatekeeper leaves them alone; if you download the
+tarball with a browser instead, clear it with
+`xattr -d com.apple.quarantine ~/.local/bin/paste-buff`.
+
+Releases are cut by pushing a tag that matches the workspace version in
+`Cargo.toml`; `.github/workflows/release.yml` builds both targets and
+publishes the tarballs plus a `SHA256SUMS` file:
+
+```sh
+git tag v0.1.0 && git push origin v0.1.0
+```
+
 ## Build and run
 
 ```sh

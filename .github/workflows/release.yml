@@ -1,0 +1,90 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches workspace version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          ver="$(grep -m1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')"
+          if [ "$tag" != "$ver" ]; then
+            echo "tag v$tag does not match Cargo.toml version $ver" >&2
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --locked -p paste-buff-gpui --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          set -eu
+          asset="paste-buff-${{ matrix.target }}"
+          mkdir -p "dist/$asset"
+          cp "target/${{ matrix.target }}/release/paste-buff-gpui" "dist/$asset/paste-buff"
+          cp README.md "dist/$asset/"
+          tar -C dist -czf "dist/$asset.tar.gz" "$asset"
+          (cd dist && shasum -a 256 "$asset.tar.gz" > "$asset.tar.gz.sha256")
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Combine checksums
+        run: |
+          cd dist
+          cat *.sha256 > SHA256SUMS
+          rm *.sha256
+          ls -l
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
+            scripts/install.sh
+          generate_release_notes: true

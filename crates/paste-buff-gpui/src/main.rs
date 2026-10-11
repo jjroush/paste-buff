@@ -464,6 +464,10 @@ impl Render for PasteBuff {
 }
 
 fn main() {
+    if std::env::args().skip(1).any(|a| a == "--version" || a == "-V") {
+        println!("paste-buff {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
     let history = Arc::new(Mutex::new(History::load(
         paste_buff_core::history_path(),
         DEFAULT_TTL,
