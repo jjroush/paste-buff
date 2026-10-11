@@ -129,6 +129,8 @@ cat > "$PLIST" <<PLIST
 PLIST
 
 launchctl bootstrap "$DOMAIN" "$PLIST"
+# RunAtLoad only applies at login; start (or restart) it now.
+launchctl kickstart -k "$DOMAIN/$LABEL"
 echo "started paste-buff in the background; it will start again at login"
 echo "press ⌘⇧V to open it. First time only, macOS asks for Accessibility access so"
 echo "it can press ⌘V for you (System Settings > Privacy & Security > Accessibility)."
