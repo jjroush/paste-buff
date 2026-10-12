@@ -1,0 +1,25 @@
+{
+  "label": "paste-buff-gpui, image newest",
+  "target": "target/release/paste-buff-gpui",
+  "toggle": "signal",
+  "cycles": 20,
+  "samples": 158,
+  "procs_max": 1,
+  "procs_final": 1,
+  "proc_names": [
+    "paste-buff-gpui"
+  ],
+  "idle_footprint_avg": 37461880,
+  "idle_footprint_max": 47301592,
+  "cycling_footprint_avg": 52340081,
+  "cycling_footprint_max": 52823000,
+  "after_footprint_avg": 47964933,
+  "final_footprint": 47842264,
+  "idle_rss_avg": 73818742,
+  "peak_rss": 100679680,
+  "idle_cpu_avg": 0.7621713705756699,
+  "cycling_cpu_avg": 2.8542917127744003,
+  "after_cpu_avg": 0.04749637800752238,
+  "binary_bytes": 6292608,
+  "recorded_at_unix": 1791776272
+}

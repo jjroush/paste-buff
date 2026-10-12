@@ -41,14 +41,14 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: Build
-        run: cargo build --release --locked -p paste-buff-gpui --target ${{ matrix.target }}
+        run: cargo build --release --locked -p paste-buff-appkit --target ${{ matrix.target }}
 
       - name: Package
         run: |
           set -eu
           asset="paste-buff-${{ matrix.target }}"
           mkdir -p "dist/$asset"
-          cp "target/${{ matrix.target }}/release/paste-buff-gpui" "dist/$asset/paste-buff"
+          cp "target/${{ matrix.target }}/release/paste-buff-appkit" "dist/$asset/paste-buff"
           cp README.md "dist/$asset/"
           tar -C dist -czf "dist/$asset.tar.gz" "$asset"
           (cd dist && shasum -a 256 "$asset.tar.gz" > "$asset.tar.gz.sha256")

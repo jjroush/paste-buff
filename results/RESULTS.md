@@ -1,3 +1,6 @@
+> Newer: `appkit-2026-10-11/RESULTS.md` compares an AppKit frontend against
+> GPUI on the same protocol.
+
 # Results — 2026-10-10, GPUI with file and image clips
 
 **Machine:** Apple M2 Max, 32 GB, macOS 26.5.1, rustc 1.98.0. Release build

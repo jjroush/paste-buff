@@ -2,10 +2,10 @@
 resolver = "2"
 members = ["crates/*"]
 # Tauri is kept for reference only; build it explicitly with `cargo build -p paste-buff-tauri`.
-default-members = ["crates/paste-buff-core", "crates/paste-buff-gpui", "crates/paste-buff-bench"]
+default-members = ["crates/paste-buff-core", "crates/paste-buff-gpui", "crates/paste-buff-appkit", "crates/paste-buff-bench"]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 

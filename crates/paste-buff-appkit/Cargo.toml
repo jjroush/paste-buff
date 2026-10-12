@@ -1,0 +1,21 @@
+[package]
+name = "paste-buff-appkit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "paste-buff frontend built directly on AppKit (NSPanel + NSTableView via objc2)"
+
+[dependencies]
+paste-buff-core.workspace = true
+global-hotkey = "0.8"
+objc2.workspace = true
+objc2-foundation = { workspace = true, features = ["NSThread", "NSIndexSet", "NSNotification", "NSGeometry"] }
+objc2-app-kit = { workspace = true, features = [
+    "NSPanel", "NSWindow", "NSResponder", "NSView", "NSControl", "NSCell",
+    "NSTableView", "NSTableColumn", "NSTableHeaderView", "NSScrollView", "NSClipView",
+    "NSTextField", "NSTextFieldCell", "NSText", "NSTextView", "NSTextContainer",
+    "NSImageView", "NSImage", "NSImageCell", "NSFont", "NSColor", "NSEvent", "NSAppearance",
+    "NSBox", "NSGraphics", "NSParagraphStyle", "NSUserInterfaceItemIdentification",
+    "objc2-quartz-core", "objc2-core-graphics",
+] }
+objc2-quartz-core = { version = "0.3", features = ["CALayer", "objc2-core-graphics"] }
