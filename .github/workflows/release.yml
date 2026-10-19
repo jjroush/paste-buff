@@ -12,42 +12,48 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    name: build (${{ matrix.target }})
+  dmg:
+    name: build paste-buff.dmg
     runs-on: macos-15
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [aarch64-apple-darwin, x86_64-apple-darwin]
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check tag matches workspace version
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Read workspace version
+        id: version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
           ver="$(grep -m1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')"
-          if [ "$tag" != "$ver" ]; then
-            echo "tag v$tag does not match Cargo.toml version $ver" >&2
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = tag ] && [ "${GITHUB_REF_NAME#v}" != "$ver" ]; then
+            echo "tag $GITHUB_REF_NAME does not match Cargo.toml version $ver" >&2
             exit 1
           fi
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
 
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.target }}
 
-      - name: Build
-        run: cargo build --release --locked -p paste-buff-appkit --target ${{ matrix.target }}
+      - name: Build universal binary
+        run: |
+          set -eu
+          for t in aarch64-apple-darwin x86_64-apple-darwin; do
+            cargo build --release --locked -p paste-buff-appkit --target "$t"
+          done
+          mkdir -p dist
+          lipo -create -output dist/paste-buff \
+            target/aarch64-apple-darwin/release/paste-buff-appkit \
+            target/x86_64-apple-darwin/release/paste-buff-appkit
+          lipo -info dist/paste-buff
+
+      - name: Bundle app
+        run: packaging/bundle.sh dist/paste-buff "${{ steps.version.outputs.version }}" dist
 
       # Developer ID signing keeps the Accessibility grant valid across upgrades:
       # TCC pins "identifier + team" instead of the cdhash of one build. The
-      # identifier must never change or every user's grant breaks again.
-      # Skipped when the secrets are absent (forks, workflow_dispatch on forks).
-      - name: Sign and notarize
+      # bundle identifier must never change or every user's grant breaks again.
+      # Without the secrets (forks) the app is ad-hoc signed and not notarized.
+      - name: Sign app, build DMG, notarize
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
@@ -56,9 +62,22 @@ jobs:
           NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
         run: |
           set -eu
-          bin="target/${{ matrix.target }}/release/paste-buff-appkit"
+          app=dist/paste-buff.app
+          dmg=dist/paste-buff.dmg
+
+          make_dmg() {
+            stage="$RUNNER_TEMP/dmg"
+            rm -rf "$stage" && mkdir -p "$stage"
+            ditto "$app" "$stage/paste-buff.app"
+            ln -s /Applications "$stage/Applications"
+            hdiutil create -volname paste-buff -srcfolder "$stage" \
+              -fs HFS+ -format ULFO -ov "$dmg"
+          }
+
           if [ -z "$MACOS_CERT_P12" ]; then
-            echo "::warning::no signing secrets; shipping the ad-hoc signed binary"
+            echo "::warning::no signing secrets; shipping an ad-hoc signed, unnotarized DMG"
+            codesign --force --sign - "$app"
+            make_dmg
             exit 0
           fi
 
@@ -73,22 +92,24 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_pass" "$keychain" >/dev/null
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
           rm "$RUNNER_TEMP/cert.p12"
+          sign() {
+            codesign --force --timestamp --keychain "$keychain" \
+              --sign "Developer ID Application" "$@"
+          }
 
-          codesign --force --timestamp --options runtime \
-            --identifier io.roush.paste-buff \
-            --keychain "$keychain" \
-            --sign "Developer ID Application" "$bin"
-          codesign --verify --strict --verbose=2 "$bin"
-          codesign -d -r- "$bin"
+          sign --options runtime "$app"
+          codesign --verify --strict --deep --verbose=2 "$app"
+          codesign -d -r- "$app"
 
-          # A bare binary can't be stapled; Gatekeeper fetches the ticket online.
+          make_dmg
+          sign "$dmg"
+
           echo "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/notary.p8"
-          ditto -c -k "$bin" "$RUNNER_TEMP/notarize.zip"
           notary() {
             xcrun notarytool "$@" \
               --key "$RUNNER_TEMP/notary.p8" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID"
           }
-          notary submit "$RUNNER_TEMP/notarize.zip" --wait --timeout 30m \
+          notary submit "$dmg" --wait --timeout 30m \
             --output-format json > "$RUNNER_TEMP/notary.json"
           cat "$RUNNER_TEMP/notary.json"
           status="$(plutil -extract status raw "$RUNNER_TEMP/notary.json")"
@@ -100,48 +121,36 @@ jobs:
           rm "$RUNNER_TEMP/notary.p8"
           security delete-keychain "$keychain"
 
-      - name: Package
+          # Staple so the DMG opens without a network round trip to Apple.
+          xcrun stapler staple "$dmg"
+          spctl --assess --type open --context context:primary-signature -vv "$dmg"
+
+      - name: Checksum
         run: |
-          set -eu
-          asset="paste-buff-${{ matrix.target }}"
-          mkdir -p "dist/$asset"
-          cp "target/${{ matrix.target }}/release/paste-buff-appkit" "dist/$asset/paste-buff"
-          cp README.md "dist/$asset/"
-          tar -C dist -czf "dist/$asset.tar.gz" "$asset"
-          (cd dist && shasum -a 256 "$asset.tar.gz" > "$asset.tar.gz.sha256")
-          ls -l dist
+          cd dist
+          shasum -a 256 paste-buff.dmg > SHA256SUMS
+          cat SHA256SUMS
 
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.target }}
+          name: paste-buff-dmg
           path: |
-            dist/*.tar.gz
-            dist/*.sha256
+            dist/paste-buff.dmg
+            dist/SHA256SUMS
           if-no-files-found: error
 
   release:
     name: publish release
-    needs: build
+    needs: dmg
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v7
-
       - uses: actions/download-artifact@v8
         with:
+          name: paste-buff-dmg
           path: dist
-          merge-multiple: true
-
-      - name: Combine checksums
-        run: |
-          cd dist
-          cat *.sha256 > SHA256SUMS
-          rm *.sha256
-          ls -l
 
       - uses: softprops/action-gh-release@v3
         with:
-          files: |
-            dist/*
-            scripts/install.sh
+          files: dist/*
           generate_release_notes: true

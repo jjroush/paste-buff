@@ -6,6 +6,8 @@
 //! so the window server drops its backing store and the process holds only
 //! the history and AppKit's own state.
 
+mod login_item;
+
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers as HotMods},
     GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
@@ -750,6 +752,7 @@ fn main() {
     let mtm = MainThreadMarker::new().expect("paste-buff must start on the main thread");
     let app = NSApplication::sharedApplication(mtm);
     macapp::set_accessory_policy();
+    login_item::register_once();
     if !paste::accessibility_trusted_prompting() {
         eprintln!(
             "paste-buff-appkit: no Accessibility permission; Enter will copy \

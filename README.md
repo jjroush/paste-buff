@@ -60,49 +60,60 @@ removes an entry, Esc or clicking elsewhere hides, ⌘Q quits.
 
 ## Install
 
-Prebuilt binaries for Apple Silicon and Intel Macs are attached to each
-[GitHub release](https://github.com/jjroush/paste-buff/releases). The install
-script picks the right one, verifies its SHA-256, and puts `paste-buff` in
-`~/.local/bin`:
+Download **[paste-buff.dmg](https://github.com/jjroush/paste-buff/releases/latest/download/paste-buff.dmg)**
+from the latest [GitHub release](https://github.com/jjroush/paste-buff/releases),
+open it, and drag paste-buff into Applications. It is one universal app for
+Apple Silicon and Intel Macs and needs macOS 13 or later. `SHA256SUMS` next to
+the DMG has its checksum.
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/jjroush/paste-buff/main/scripts/install.sh | sh
-```
-
-Set `PASTE_BUFF_VERSION=v0.1.0` to pin a release or `PASTE_BUFF_BIN_DIR` to
-install elsewhere. While the repository is private, GitHub needs a token to
-serve both the script and the assets, so use the `gh` CLI instead:
-
-```sh
-gh release download --repo jjroush/paste-buff --pattern 'install.sh' -O - | GITHUB_TOKEN=$(gh auth token) sh
-# or grab the tarball directly
-gh release download --repo jjroush/paste-buff --pattern "paste-buff-$(uname -m | sed s/arm64/aarch64/)-apple-darwin.tar.gz"
-```
-
-The script also registers a launchd agent (`~/Library/LaunchAgents/
-io.roush.paste-buff.plist`) that starts `paste-buff` right away and at every
-login, restarts it if it crashes, and logs to `~/Library/Logs/paste-buff.log`.
-Quitting with ⌘Q inside the panel stops it until the next login or
-reinstall. Set `PASTE_BUFF_NO_AGENT=1` to get just the binary, and run
-`install.sh --uninstall` to remove the agent and the binary (history stays).
+paste-buff has no window, Dock icon or menu bar item: open it once and press
+⌘⇧V. On that first launch it adds itself to System Settings > General >
+Login Items so it starts at every login; switch it off there and it stays
+off. ⌘Q inside the panel quits until the next login.
 
 On first launch macOS asks for Accessibility access so paste-buff can press
-⌘V in the target app. Raycast's Clipboard History also uses ⌘⇧V; turn that
-hotkey off in Raycast or the two will fight over the panel.
+⌘V in the target app. Raycast's Clipboard History also uses ⌘⇧V; turn that hotkey
+off in Raycast or the two will fight over the panel.
 
-Release binaries are signed with a Developer ID and notarised, so the
-Accessibility grant carries over to new versions and browser downloads pass
-Gatekeeper. Upgrading from v0.2.0 or earlier (ad-hoc signed) needs one last
-re-grant: remove the old paste-buff entry from the Accessibility list and
-re-add it.
+The app and DMG are signed with a Developer ID, notarised and stapled, so
+Gatekeeper opens them without warnings and the Accessibility grant carries
+over to new versions. To uninstall, quit it, drag it to the Trash, and remove
+its Login Items entry; history stays in
+`~/Library/Application Support/paste-buff` until you delete it.
 
-Releases are cut by pushing a tag that matches the workspace version in
-`Cargo.toml`; `.github/workflows/release.yml` builds both targets and
-publishes the tarballs plus a `SHA256SUMS` file:
+### Moving from the curl installer (v0.2.x)
+
+Versions up to 0.2.1 installed a bare binary and a launchd agent. Remove
+those before installing the app, then re-grant Accessibility to the app
+(remove the old `paste-buff` entry from the list first):
 
 ```sh
-git tag v0.1.0 && git push origin v0.1.0
+launchctl bootout gui/$(id -u)/io.roush.paste-buff
+rm ~/Library/LaunchAgents/io.roush.paste-buff.plist ~/.local/bin/paste-buff
 ```
+
+## Releasing
+
+Push a tag that matches the workspace version in `Cargo.toml`.
+`.github/workflows/release.yml` builds both architectures into a universal
+binary, wraps it in `paste-buff.app` (`packaging/`), signs it, builds the
+DMG, notarises and staples it, and publishes `paste-buff.dmg` plus
+`SHA256SUMS`:
+
+```sh
+git tag v0.3.0 && git push origin v0.3.0
+```
+
+To build the app locally (ad-hoc signed):
+
+```sh
+cargo build --release -p paste-buff-appkit
+packaging/bundle.sh target/release/paste-buff-appkit dev target
+codesign --force --sign - target/paste-buff.app
+```
+
+The icon is drawn by `packaging/make-icon.swift`; regenerate `AppIcon.icns`
+with the two commands at the top of that file.
 
 ## Build and run
 
