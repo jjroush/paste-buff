@@ -43,6 +43,63 @@ jobs:
       - name: Build
         run: cargo build --release --locked -p paste-buff-appkit --target ${{ matrix.target }}
 
+      # Developer ID signing keeps the Accessibility grant valid across upgrades:
+      # TCC pins "identifier + team" instead of the cdhash of one build. The
+      # identifier must never change or every user's grant breaks again.
+      # Skipped when the secrets are absent (forks, workflow_dispatch on forks).
+      - name: Sign and notarize
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: |
+          set -eu
+          bin="target/${{ matrix.target }}/release/paste-buff-appkit"
+          if [ -z "$MACOS_CERT_P12" ]; then
+            echo "::warning::no signing secrets; shipping the ad-hoc signed binary"
+            exit 0
+          fi
+
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          kc_pass="$(openssl rand -hex 16)"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$kc_pass" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$kc_pass" "$keychain"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$MACOS_CERT_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_pass" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+
+          codesign --force --timestamp --options runtime \
+            --identifier io.roush.paste-buff \
+            --keychain "$keychain" \
+            --sign "Developer ID Application" "$bin"
+          codesign --verify --strict --verbose=2 "$bin"
+          codesign -d -r- "$bin"
+
+          # A bare binary can't be stapled; Gatekeeper fetches the ticket online.
+          echo "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          ditto -c -k "$bin" "$RUNNER_TEMP/notarize.zip"
+          notary() {
+            xcrun notarytool "$@" \
+              --key "$RUNNER_TEMP/notary.p8" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID"
+          }
+          notary submit "$RUNNER_TEMP/notarize.zip" --wait --timeout 30m \
+            --output-format json > "$RUNNER_TEMP/notary.json"
+          cat "$RUNNER_TEMP/notary.json"
+          status="$(plutil -extract status raw "$RUNNER_TEMP/notary.json")"
+          if [ "$status" != "Accepted" ]; then
+            notary log "$(plutil -extract id raw "$RUNNER_TEMP/notary.json")" || true
+            echo "::error::notarization $status" >&2
+            exit 1
+          fi
+          rm "$RUNNER_TEMP/notary.p8"
+          security delete-keychain "$keychain"
+
       - name: Package
         run: |
           set -eu

@@ -90,10 +90,11 @@ On first launch macOS asks for Accessibility access so paste-buff can press
 ⌘V in the target app. Raycast's Clipboard History also uses ⌘⇧V; turn that
 hotkey off in Raycast or the two will fight over the panel.
 
-The binary is ad-hoc signed, not notarised. Files fetched with `curl` carry
-no quarantine flag so Gatekeeper leaves them alone; if you download the
-tarball with a browser instead, clear it with
-`xattr -d com.apple.quarantine ~/.local/bin/paste-buff`.
+Release binaries are signed with a Developer ID and notarised, so the
+Accessibility grant carries over to new versions and browser downloads pass
+Gatekeeper. Upgrading from v0.2.0 or earlier (ad-hoc signed) needs one last
+re-grant: remove the old paste-buff entry from the Accessibility list and
+re-add it.
 
 Releases are cut by pushing a tag that matches the workspace version in
 `Cargo.toml`; `.github/workflows/release.yml` builds both targets and
