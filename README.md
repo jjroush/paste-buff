@@ -198,25 +198,36 @@ Esc; needs Accessibility), `none` (idle only).
 
 ## Results
 
-Round two, 2026-10-11: AppKit against GPUI, both re-run the same evening.
-Apple M2 Max, 32 GB, macOS 27.0.1, rustc 1.98.0, release builds. Protocol:
-20 s idle → 20 × (open, hold 1 s, close, wait 1 s) → 20 s cooldown, sampled
-every 0.5 s, launched by the harness and toggled with SIGUSR1, each run from
-a fresh copy of the seed (202 entries with a 1600×1000 PNG newest, or 200
-text entries with `--no-media`). Raycast and Tauri rows are round one's,
-text-only seed, same protocol.
+Round three, 2026-10-24: 0.4.0 (Liquid Glass) against 0.3.0 and Maccy;
+round two, 2026-10-11: AppKit against GPUI. Apple M2 Max, 32 GB,
+macOS 27.0.1, rustc 1.98.0, release builds. Protocol: 20 s idle →
+20 × (open, hold 1 s, close, wait 1 s) → 20 s cooldown, sampled every 0.5 s,
+launched by the harness and toggled with SIGUSR1, each run from a fresh copy
+of the seed (202 entries with a 1600×1000 PNG newest, or 200 text entries
+with `--no-media`). Maccy got the same 200 text entries through the
+pasteboard and was toggled with its shortcut. Raycast and Tauri rows are
+round one's, text-only seed, same protocol.
 
 | target | procs | idle footprint | peak (panel up) | after 20 cycles | cycling CPU | binary |
 |---|---:|---:|---:|---:|---:|---:|
-| paste-buff-appkit, text-only seed | 1 | 14.6 MB | 17.6 MB | 17.3 MB | 4.4% | 0.7 MB |
-| paste-buff-appkit, image newest | 1 | 14.7 MB | 17.9 MB | 17.8 MB | 3.9% | 0.7 MB |
+| paste-buff-appkit 0.4.0, text-only seed | 1 | 16.4 MB | 20.3 MB | 20.1 MB | 2.8% | 0.7 MB |
+| paste-buff-appkit 0.4.0, image newest | 1 | 17.4 MB | 31.6 MB | 27.4 MB | 3.4% | 0.7 MB |
+| paste-buff-appkit 0.3.0, text-only seed (round two) | 1 | 14.6 MB | 17.6 MB | 17.3 MB | 4.4% | 0.7 MB |
+| paste-buff-appkit 0.3.0, image newest (round two) | 1 | 14.7 MB | 17.9 MB | 17.8 MB | 3.9% | 0.7 MB |
 | paste-buff-gpui, text-only seed | 1 | 30.1 MB | 51.0 MB | 45.0 MB | 2.2% | 6.0 MB |
 | paste-buff-gpui, image newest | 1 | 35.7 MB | 50.4 MB | 45.7 MB | 2.9% | 6.0 MB |
+| Maccy 2.7.1 (round three) | 3 | 53.6 MB | 90.8 MB | 63.9 MB | 3.4% | 3.6 MB |
 | paste-buff-tauri (round one) | 4 | 66.3 MB | 111.6 MB | 73.5 MB | 5.2% | 5.5 MB |
 | Raycast (round one) | 6 | 116.4 MB | 131.1 MB | 126.8 MB | 7.0% | – |
 
 What the numbers say:
 
+- **Liquid Glass costs 2–3 MB.** 0.4.0 idles at 16.4 MB against 14.2 MB for
+  0.3.0 re-run the same afternoon. After an image preview it settles 9 MB
+  higher (27 MB) and stays there: the glass view's layer-backed hierarchy
+  keeps the decoded image cached after the panel is ordered out.
+- **Maccy idles at about three times paste-buff** (53.6 MB across Maccy and
+  two system helpers macOS attributes to it) and peaks at 91 MB.
 - **AppKit idles at half of GPUI and settles at a third.** The AppKit panel
   is ordered out when hidden, so WindowServer drops its backing store. GPUI
   keeps the window, three Retina drawables (16 MB of IOSurface) and the
@@ -235,12 +246,13 @@ What the numbers say:
   warm. Idle CPU is at the noise floor for every frontend.
 - **The binary is 0.7 MB against 6.0 MB.** No shader compiler, image
   decoders or font shaper of our own; everything comes from the OS.
-- **Against Raycast**, AppKit idles at an eighth of its footprint in one
-  process instead of six. Raycast is a whole launcher, so this is the cost
+- **Against Raycast**, AppKit idles at about a seventh of its footprint in
+  one process instead of six. Raycast is a whole launcher, so this is the cost
   of its clipboard history being bundled, not a like-for-like comparison.
 
-Raw samples, summaries and stderr logs for round two are in
-`results/appkit-2026-10-11/`, with its own `RESULTS.md`. Round one's GPUI
+Raw samples, summaries and stderr logs for round three are in
+`results/appkit-glass-2026-10-24/` and for round two in
+`results/appkit-2026-10-11/`, each with its own `RESULTS.md`. Round one's GPUI
 runs are in `results/RESULTS.md` and the original three-way comparison in
 `results/baseline-2026-10-10/`. Regenerate any table with
 `paste-buff-bench report <dir>/*.json`.

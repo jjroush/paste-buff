@@ -1,0 +1,25 @@
+{
+  "label": "paste-buff-appkit 0.4.0 (glass), image newest",
+  "target": "target/release/paste-buff-appkit",
+  "toggle": "signal",
+  "cycles": 20,
+  "samples": 158,
+  "procs_max": 1,
+  "procs_final": 1,
+  "proc_names": [
+    "paste-buff-appkit"
+  ],
+  "idle_footprint_avg": 18221180,
+  "idle_footprint_max": 18334608,
+  "cycling_footprint_avg": 30721594,
+  "cycling_footprint_max": 33162200,
+  "after_footprint_avg": 28767483,
+  "final_footprint": 28738496,
+  "idle_rss_avg": 56996995,
+  "peak_rss": 75759616,
+  "idle_cpu_avg": 0.028563287347265338,
+  "cycling_cpu_avg": 3.385560274569567,
+  "after_cpu_avg": 0.030313757193173255,
+  "binary_bytes": 742416,
+  "recorded_at_unix": 1792863559
+}

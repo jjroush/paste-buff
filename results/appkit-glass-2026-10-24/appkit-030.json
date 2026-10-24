@@ -1,0 +1,25 @@
+{
+  "label": "paste-buff-appkit 0.3.0, image newest",
+  "target": "/private/tmp/claude-501/-Users-roush-Developer-paste-buff/da93f204-6020-4e56-8ad5-a46e4e0b3ad6/scratchpad/v030-target/release/paste-buff-appkit",
+  "toggle": "signal",
+  "cycles": 20,
+  "samples": 158,
+  "procs_max": 1,
+  "procs_final": 1,
+  "proc_names": [
+    "paste-buff-appkit"
+  ],
+  "idle_footprint_avg": 14733512,
+  "idle_footprint_max": 14975912,
+  "cycling_footprint_avg": 18678538,
+  "cycling_footprint_max": 18990040,
+  "after_footprint_avg": 18876612,
+  "final_footprint": 18842584,
+  "idle_rss_avg": 50480364,
+  "peak_rss": 71614464,
+  "idle_cpu_avg": 0.034568727297318885,
+  "cycling_cpu_avg": 1.719714906469473,
+  "after_cpu_avg": 0.026412098091618656,
+  "binary_bytes": 725808,
+  "recorded_at_unix": 1792863729
+}

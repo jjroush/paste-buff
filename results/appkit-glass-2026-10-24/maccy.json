@@ -1,0 +1,27 @@
+{
+  "label": "Maccy 2.7.1, 200 text clips",
+  "target": "/Applications/Maccy.app/Contents/MacOS/Maccy",
+  "toggle": "keys",
+  "cycles": 20,
+  "samples": 158,
+  "procs_max": 3,
+  "procs_final": 3,
+  "proc_names": [
+    "Maccy",
+    "SetStoreUpdateService",
+    "com.apple.SafariPlatformSupport.Helper"
+  ],
+  "idle_footprint_avg": 56255233,
+  "idle_footprint_max": 87770864,
+  "cycling_footprint_avg": 79286227,
+  "cycling_footprint_max": 95241992,
+  "after_footprint_avg": 66993875,
+  "final_footprint": 66373384,
+  "idle_rss_avg": 130220452,
+  "peak_rss": 170409984,
+  "idle_cpu_avg": 0.8129569860168082,
+  "cycling_cpu_avg": 3.4035094829442496,
+  "after_cpu_avg": 0.07071465990781572,
+  "binary_bytes": 3794160,
+  "recorded_at_unix": 1792864714
+}
