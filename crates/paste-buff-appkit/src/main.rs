@@ -13,18 +13,19 @@ use global_hotkey::{
     GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
 };
 use objc2::rc::Retained;
-use objc2::runtime::ProtocolObject;
+use objc2::runtime::{AnyClass, ProtocolObject};
 use objc2::{define_class, msg_send, sel, AnyThread, DefinedClass, MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSAppearance, NSAppearanceCustomization, NSAppearanceNameDarkAqua, NSApplication,
-    NSAutoresizingMaskOptions, NSBackingStoreType, NSBorderType, NSBox, NSBoxType, NSColor,
-    NSControlTextEditingDelegate,
-    NSEvent, NSEventModifierFlags, NSEventType, NSFont, NSImage, NSImageScaling, NSImageView,
-    NSPanel, NSPopUpMenuWindowLevel, NSResponder, NSScrollView, NSTableColumn,
+    NSApplication, NSAutoresizingMaskOptions, NSBackgroundStyle, NSBackingStoreType, NSBorderType,
+    NSBox, NSBoxType, NSColor, NSControlTextEditingDelegate,
+    NSEvent, NSEventModifierFlags, NSEventType, NSFont, NSGlassEffectView, NSGlassEffectViewStyle,
+    NSImage, NSImageScaling, NSImageView,
+    NSPanel, NSPopUpMenuWindowLevel, NSResponder, NSScrollView, NSTableCellView, NSTableColumn,
     NSTableColumnResizingOptions, NSTableView, NSTableViewDataSource, NSTableViewDelegate,
     NSTableViewSelectionHighlightStyle, NSTableViewStyle, NSTextAlignment, NSTextField,
-    NSTextView, NSUserInterfaceItemIdentification, NSView, NSWindow, NSWindowAnimationBehavior,
-    NSWindowCollectionBehavior, NSWindowStyleMask,
+    NSTextView, NSUserInterfaceItemIdentification, NSView, NSVisualEffectBlendingMode,
+    NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView, NSWindow,
+    NSWindowAnimationBehavior, NSWindowCollectionBehavior, NSWindowStyleMask,
 };
 use objc2_foundation::{
     ns_string, NSIndexSet, NSInteger, NSNotification, NSObject, NSObjectNSThreadPerformAdditions,
@@ -48,9 +49,7 @@ const FOOTER_HEIGHT: f64 = 40.0;
 const INFO_HEIGHT: f64 = 160.0;
 const PAD: f64 = 14.0;
 const PREVIEW_CHARS: usize = 4000;
-
-const BG: u32 = 0x1c1c1e;
-const BORDER: u32 = 0x313135;
+const CORNER_RADIUS: f64 = 18.0;
 
 // Virtual key codes (Carbon `kVK_*`).
 const KEY_RETURN: u16 = 36;
@@ -70,11 +69,6 @@ fn rect(x: f64, y: f64, w: f64, h: f64) -> NSRect {
     NSRect::new(NSPoint::new(x, y), NSSize::new(w, h))
 }
 
-fn rgb(hex: u32) -> Retained<NSColor> {
-    let c = |shift: u32| ((hex >> shift) & 0xff) as f64 / 255.0;
-    NSColor::colorWithSRGBRed_green_blue_alpha(c(16), c(8), c(0), 1.0)
-}
-
 /// Single-line label in the system font; `muted` picks the secondary color.
 fn label(mtm: MainThreadMarker, text: &str, size: f64, muted: bool) -> Retained<NSTextField> {
     let l = NSTextField::labelWithString(&ns(text), mtm);
@@ -83,12 +77,48 @@ fn label(mtm: MainThreadMarker, text: &str, size: f64, muted: bool) -> Retained<
     l
 }
 
+/// Semantic colors, so labels follow the system light/dark setting.
 fn text_color(muted: bool) -> Retained<NSColor> {
     if muted {
         NSColor::secondaryLabelColor()
     } else {
         NSColor::labelColor()
     }
+}
+
+/// Label colors on an emphasized (accent-filled) selection.
+fn selected_text_color(muted: bool) -> Retained<NSColor> {
+    let c = NSColor::alternateSelectedControlTextColor();
+    if muted {
+        c.colorWithAlphaComponent(0.75)
+    } else {
+        c
+    }
+}
+
+/// The panel's backdrop, with `content` inside it: Liquid Glass where AppKit
+/// has it (macOS 26+), the popover vibrancy material before that. Both
+/// follow the system appearance on their own.
+fn backdrop(mtm: MainThreadMarker, content: &NSView) -> Retained<NSView> {
+    let frame = content.frame();
+    if AnyClass::get(c"NSGlassEffectView").is_some() {
+        let glass = NSGlassEffectView::initWithFrame(NSGlassEffectView::alloc(mtm), frame);
+        glass.setStyle(NSGlassEffectViewStyle::Regular);
+        glass.setCornerRadius(CORNER_RADIUS);
+        glass.setContentView(Some(content));
+        return glass.into_super();
+    }
+    let effect = NSVisualEffectView::initWithFrame(NSVisualEffectView::alloc(mtm), frame);
+    effect.setMaterial(NSVisualEffectMaterial::Popover);
+    effect.setBlendingMode(NSVisualEffectBlendingMode::BehindWindow);
+    effect.setState(NSVisualEffectState::Active);
+    effect.setWantsLayer(true);
+    if let Some(layer) = effect.layer() {
+        layer.setCornerRadius(CORNER_RADIUS);
+        layer.setMasksToBounds(true);
+    }
+    effect.addSubview(content);
+    effect.into_super()
 }
 
 /// Multi-line label (newlines in the string become lines).
@@ -115,10 +145,28 @@ struct RowIvars {
 }
 
 define_class!(
-    #[unsafe(super(NSView, NSResponder, NSObject))]
+    #[unsafe(super(NSTableCellView, NSView, NSResponder, NSObject))]
     #[thread_kind = MainThreadOnly]
     #[ivars = RowIvars]
     struct RowView;
+
+    impl RowView {
+        /// The row view sets this on selection; flip the labels to the
+        /// selected-text colors so they stay readable on the accent fill.
+        #[unsafe(method(setBackgroundStyle:))]
+        fn set_background_style(&self, style: NSBackgroundStyle) {
+            let _: () = unsafe { msg_send![super(self), setBackgroundStyle: style] };
+            let color = if style == NSBackgroundStyle::Emphasized {
+                selected_text_color
+            } else {
+                text_color
+            };
+            let iv = self.ivars();
+            iv.icon.setTextColor(Some(&color(true)));
+            iv.title.setTextColor(Some(&color(false)));
+            iv.time.setTextColor(Some(&color(true)));
+        }
+    }
 );
 
 impl RowView {
@@ -252,7 +300,7 @@ define_class!(
             _column: Option<&NSTableColumn>,
             row: NSInteger,
         ) -> Option<Retained<NSView>> {
-            self.row_view(table, row).map(Retained::into_super)
+            self.row_view(table, row).map(|v| Retained::into_super(Retained::into_super(v)))
         }
 
         #[unsafe(method(tableViewSelectionDidChange:))]
@@ -283,14 +331,6 @@ impl PastePanel {
 
     fn new(mtm: MainThreadMarker, history: Arc<Mutex<History>>) -> Retained<Self> {
         let content = NSView::initWithFrame(NSView::alloc(mtm), rect(0.0, 0.0, WIDTH, HEIGHT));
-        content.setWantsLayer(true);
-        if let Some(layer) = content.layer() {
-            layer.setCornerRadius(12.0);
-            layer.setMasksToBounds(true);
-            layer.setBackgroundColor(Some(&rgb(BG).CGColor()));
-            layer.setBorderWidth(1.0);
-            layer.setBorderColor(Some(&rgb(BORDER).CGColor()));
-        }
 
         // Header: the filter query.
         let header_y = HEIGHT - HEADER_HEIGHT;
@@ -319,7 +359,8 @@ impl PastePanel {
         table.setRowHeight(ROW_HEIGHT);
         table.setIntercellSpacing(NSSize::new(0.0, 0.0));
         table.setBackgroundColor(&NSColor::clearColor());
-        table.setStyle(NSTableViewStyle::Plain);
+        // Inset: rounded selection capsules, which sit better on glass.
+        table.setStyle(NSTableViewStyle::Inset);
         table.setSelectionHighlightStyle(NSTableViewSelectionHighlightStyle::Regular);
         table.setAllowsEmptySelection(true);
         let list_scroll = NSScrollView::initWithFrame(NSScrollView::alloc(mtm), list_frame);
@@ -396,7 +437,7 @@ impl PastePanel {
 
         // Footer.
         content.addSubview(&separator(mtm, rect(0.0, FOOTER_HEIGHT, WIDTH, 1.0)));
-        let brand = label(mtm, "paste-buff · AppKit", 13.0, true);
+        let brand = label(mtm, "paste-buff", 13.0, true);
         brand.setFrame(rect(PAD, 12.0, 300.0, 17.0));
         content.addSubview(&brand);
         let target_label = label(mtm, "", 13.0, false);
@@ -433,7 +474,7 @@ impl PastePanel {
                 defer: false,
             ]
         };
-        this.setContentView(Some(&content));
+        this.setContentView(Some(&backdrop(mtm, &content)));
         this.setLevel(NSPopUpMenuWindowLevel);
         this.setOpaque(false);
         this.setBackgroundColor(Some(&NSColor::clearColor()));
@@ -447,9 +488,6 @@ impl PastePanel {
                 | NSWindowCollectionBehavior::FullScreenAuxiliary
                 | NSWindowCollectionBehavior::Transient,
         );
-        if let Some(dark) = NSAppearance::appearanceNamed(unsafe { NSAppearanceNameDarkAqua }) {
-            this.setAppearance(Some(&dark));
-        }
         let ivars = this.ivars();
         unsafe {
             ivars.table.setDataSource(Some(ProtocolObject::from_ref(&*this)));

@@ -5080,7 +5080,7 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "paste-buff-appkit"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "global-hotkey",
  "objc2",
@@ -5093,7 +5093,7 @@ dependencies = [
 
 [[package]]
 name = "paste-buff-bench"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "clap",
  "libc",
@@ -5104,7 +5104,7 @@ dependencies = [
 
 [[package]]
 name = "paste-buff-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "core-foundation 0.10.0",
  "core-graphics 0.25.0",
@@ -5118,7 +5118,7 @@ dependencies = [
 
 [[package]]
 name = "paste-buff-gpui"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "futures",
  "global-hotkey",
@@ -5128,7 +5128,7 @@ dependencies = [
 
 [[package]]
 name = "paste-buff-tauri"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "paste-buff-core",
  "serde",

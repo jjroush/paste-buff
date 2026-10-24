@@ -16,6 +16,7 @@ objc2-app-kit = { workspace = true, features = [
     "NSTextField", "NSTextFieldCell", "NSText", "NSTextView", "NSTextContainer",
     "NSImageView", "NSImage", "NSImageCell", "NSFont", "NSColor", "NSEvent", "NSAppearance",
     "NSBox", "NSGraphics", "NSParagraphStyle", "NSUserInterfaceItemIdentification",
+    "NSTableCellView", "NSGlassEffectView", "NSVisualEffectView",
     "objc2-quartz-core", "objc2-core-graphics",
 ] }
 objc2-quartz-core = { version = "0.3", features = ["CALayer", "objc2-core-graphics"] }
